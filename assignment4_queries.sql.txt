@@ -1,0 +1,145 @@
+  Assignment 4: Query Design for ECommerce Database
+  Group Members: Zhushan He, Selvi Lesmana Putri, Alhagie Kijera, Isaac Ebu-Danso
+  Date: 13.02.2026
+
+---------------------------------------------------
+-- PART 1: Basic Queries (1-10)
+
+-- Query 1: List all customers
+SELECT customer_id, customer_name, customer_zip_code
+FROM Customer;
+
+-- Query 2: Show all products with their category names
+SELECT p.product_id, p.product_name, c.product_category_name
+FROM Product p
+JOIN Product_category c
+ON p.product_category_id = c.product_category_id;
+
+-- Query 3: Retrieve all orders placed by customer with ID = 10, including their city
+SELECT o.*, c.customer_name, g.geo_city
+FROM "Order" o
+JOIN Customer c ON o.customer_id = c.customer_id
+JOIN Geolocation g ON c.customer_zip_code = g.geo_zip_code
+WHERE o.customer_id = 10;
+
+-- Query 4: List all sellers and their city/state
+SELECT s.seller_id, s.seller_name, g.geo_city, g.geo_state
+FROM Seller s
+JOIN Geolocation g
+ON s.seller_zip_code = g.geo_zip_code;
+
+-- Query 5: Show all order items for order ID = 5, showing product name and seller name
+SELECT oi.*, p.product_name, s.seller_name
+FROM Order_item oi
+JOIN Product p ON oi.product_id = p.product_id
+JOIN Seller s ON oi.seller_id = s.seller_id
+WHERE oi.order_id = 5;
+
+-- Query 6: List all reviews with their order dates
+SELECT r.order_review_id, r.order_review_score, o.order_date
+FROM Order_review r
+JOIN "Order" o
+ON r.order_id = o.order_id;
+
+-- Query 7: Show all payments and their order IDs, showing the customer name
+SELECT op.payment_id, op.payment_amount, c.customer_name
+FROM Order_payment op
+JOIN "Order" o ON op.order_id = o.order_id
+JOIN Customer c ON o.customer_id = c.customer_id;
+
+-- Query 8: List all products sold by seller with ID = 3
+SELECT DISTINCT p.product_id, p.product_name
+FROM Order_item oi
+JOIN Product p
+ON oi.product_id = p.product_id
+WHERE oi.seller_id = 3;
+
+-- Query 9: Show all customers and the city they live in
+SELECT c.customer_id, c.customer_name, g.geo_city
+FROM Customer c
+JOIN Geolocation g
+ON c.customer_zip_code = g.geo_zip_code;
+
+-- Query 10: List all orders with customer names
+SELECT o.order_id, o.order_date, c.customer_name
+FROM "Order" o
+JOIN Customer c
+ON o.customer_id = c.customer_id;
+
+---------------------------------------------------
+-- PART 2: Complex Queries (11-20)
+
+-- Query 11: Total number of orders per customer
+SELECT customer_id, COUNT(*) AS total_orders
+FROM "Order"
+GROUP BY customer_id;
+
+-- Query 12: Top 5 bestselling products by quantity, including category names
+SELECT p.product_name, pc.product_category_name, SUM(oi.quantity) AS total_sold
+FROM Order_item oi
+JOIN Product p ON oi.product_id = p.product_id
+JOIN Product_category pc ON p.product_category_id = pc.product_category_id
+GROUP BY p.product_name, pc.product_category_name
+ORDER BY total_sold DESC
+LIMIT 5;
+
+-- Query 13: Customers who never placed an order
+SELECT customer_id, customer_name
+FROM Customer c
+WHERE NOT EXISTS (SELECT 1 FROM "Order" o WHERE o.customer_id = c.customer_id);
+
+-- Query 14: Average review score per product
+SELECT p.product_name, AVG(r.order_review_score) AS avg_score
+FROM Order_review r
+JOIN "Order" o ON r.order_id = o.order_id
+JOIN Order_item oi ON o.order_id = oi.order_id
+JOIN Product p ON oi.product_id = p.product_id
+GROUP BY p.product_name;
+
+-- Query 15: Total revenue per seller
+SELECT s.seller_id, s.seller_name, SUM(oi.total_price_per_product) AS revenue
+FROM Order_item oi
+JOIN Seller s ON oi.seller_id = s.seller_id
+GROUP BY s.seller_id, s.seller_name;
+
+-- Query 16: Orders delivered later than estimated
+SELECT o.order_id, c.customer_name, g.geo_city
+FROM "Order" o
+JOIN Customer c ON o.customer_id = c.customer_id
+JOIN Geolocation g ON c.customer_zip_code = g.geo_zip_code
+WHERE o.order_delivery_date > o.order_estimation_delivery_date;
+
+-- Query 17: Products in categories with more than 5 distinct products
+SELECT product_name
+FROM Product
+WHERE product_category_id IN (
+    SELECT product_category_id
+    FROM Product
+    GROUP BY product_category_id
+    HAVING COUNT(*) > 5
+);
+
+-- Query 18: List all unique names of sellers and customers along with their cities (UNION)
+SELECT seller_name AS name, g.geo_city
+FROM Seller s
+JOIN Geolocation g ON s.seller_zip_code = g.geo_zip_code
+UNION
+SELECT customer_name AS name, g.geo_city
+FROM Customer c
+JOIN Geolocation g ON c.customer_zip_code = g.geo_zip_code;
+
+-- Query 19: Total payment amount per customer across all orders
+SELECT c.customer_name, SUM(op.payment_amount) AS total_paid
+FROM Order_payment op
+JOIN "Order" o ON op.order_id = o.order_id
+JOIN Customer c ON o.customer_id = c.customer_id
+GROUP BY c.customer_name;
+
+-- Query 20: Find the most expensive product in each product category
+SELECT p.product_category_id, p.product_name, p.product_price_per_unit
+FROM Product p
+WHERE p.product_price_per_unit = (
+    SELECT MAX(product_price_per_unit)
+    FROM Product
+    WHERE product_category_id = p.product_category_id
+);
